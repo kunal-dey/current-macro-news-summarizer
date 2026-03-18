@@ -1,0 +1,43 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+.venv*/
+venv/
+venv*/
+ENV/
+env/
+
+# Python caches / tooling
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+
+# Editor / IDE
+.vscode/
+.idea/
+.cursor/
+
+# Secrets / lockfiles
+.env
+uv.lock
+
+# OS / misc
+Thumbs.db
+.DS_Store
+
+# Runtime artifacts / local debug
+temp/
+temp.txt
+*.log
+*.csv
