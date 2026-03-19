@@ -1,9 +1,10 @@
 from pathlib import Path
+import gc
 import os
 from langchain_core.runnables import RunnableLambda, RunnableParallel, RunnableBranch
 
 from app.utils.logger import get_logger
-from app.utils.s3_log import s3_client, upload_extracted_csv_to_s3, upload_aggregate_macro_to_s3
+from app.utils.s3_log import s3_client, upload_extracted_csv_to_s3, upload_aggregate_macro_to_s3, flush_log_handlers
 
 from app.services.extract import extract_news_from_pulse
 from app.pipeline.event_store import get_extracted_headings, save_extracted_articles
@@ -204,27 +205,36 @@ def _process_events(state: dict) -> dict:
     if not macro_articles:
         return {**state, "events_created": 0, "events_updated": 0}
     created, updated = 0, 0
+    errors = list(state.get("errors") or [])
     try:
         init_db()
         with DBClient() as db:
-            for article in macro_articles:
+            total = len(macro_articles)
+            for i, article in enumerate(macro_articles):
                 headline = article.heading
                 content = article.content or ""
-                embedding = embed_headline(headline)
-                event = get_same_event_if_recent(db.session, embedding)
-                if event:
-                    update_event_timeline(db.session, event.id, headline, content)
-                    updated += 1
-                    logger.info("Updated event %s with headline: %s", event.id, headline[:50])
-                else:
-                    insert_new_event(db.session, headline, embedding, headline, content)
-                    created += 1
-                    logger.info("Created new event for: %s", headline[:50])
-        logger.info("Events: %d created, %d updated", created, updated)
+                logger.info("Processing macro article %d/%d: %s", i + 1, total, headline[:60])
+                flush_log_handlers()
+                try:
+                    embedding = embed_headline(headline)
+                    event = get_same_event_if_recent(db.session, embedding)
+                    if event:
+                        update_event_timeline(db.session, event.id, headline, content)
+                        updated += 1
+                        logger.info("Updated event %s with headline: %s", event.id, headline[:50])
+                    else:
+                        insert_new_event(db.session, headline, embedding, headline, content)
+                        created += 1
+                        logger.info("Created new event for: %s", headline[:50])
+                except Exception as e:
+                    logger.error("Skipping article %d/%d due to error: %s", i + 1, total, e, exc_info=True)
+                    errors.append(f"Article '{headline[:50]}...': {e}")
+                gc.collect()  # release memory between articles to reduce OOM risk on low-RAM instances
+            logger.info("Events: %d created, %d updated", created, updated)
     except Exception as e:
         logger.error("Event processing error: %s", e, exc_info=True)
-        return {**state, "events_created": created, "events_updated": updated, "errors": state.get("errors", []) + [str(e)]}
-    return {**state, "events_created": created, "events_updated": updated}
+        return {**state, "events_created": created, "events_updated": updated, "errors": errors + [str(e)]}
+    return {**state, "events_created": created, "events_updated": updated, "errors": errors if errors else state.get("errors")}
 
 def _log_success(state: dict) -> dict:
     """

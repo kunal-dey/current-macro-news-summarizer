@@ -91,9 +91,7 @@ def upload_log_to_s3() -> bool:
         client.upload_file(str(LOG_FILE), bucket, key, ExtraArgs={"ContentType": "text/plain"})
         logger.info("Log file uploaded to s3://%s/%s", bucket, key)
         _close_log_file_handlers()
-        if LOG_FILE.exists():
-            LOG_FILE.unlink()
-            logger.info("Deleted local log file after upload: %s", LOG_FILE)
+        # Keep log file in temp; next run will replace its contents (logger uses mode='w').
         return True
     except Exception as e:
         logger.error("Failed to upload log to S3: %s", e, exc_info=True)
