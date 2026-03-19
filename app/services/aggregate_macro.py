@@ -4,7 +4,7 @@ import json
 import re
 from typing import Any
 
-from langchain_openai import ChatOpenAI
+from openai import OpenAI
 
 from app.config.settings import REASONING_MODEL
 from app.pipeline.event_store import get_headlines_last_n_days
@@ -44,9 +44,13 @@ def generate_aggregate_macro_environment(days: int = 2) -> dict[str, Any] | None
         return None
 
     try:
-        llm = ChatOpenAI(model=REASONING_MODEL, temperature=0, openai_api_key=api_key)
-        response = llm.invoke(prompt)
-        raw = response.content if hasattr(response, "content") else str(response)
+        client = OpenAI(api_key=api_key)
+        response = client.chat.completions.create(
+            model=REASONING_MODEL,
+            temperature=0,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        raw = response.choices[0].message.content or ""
         json_str = _extract_json_from_response(raw)
         data = json.loads(json_str)
         if "aggregate_macro_environment" not in data:

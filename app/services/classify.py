@@ -3,7 +3,7 @@
 from typing import Any, Dict, List
 
 from langchain_core.runnables import RunnableLambda, RunnableParallel
-from langchain_openai import ChatOpenAI
+from openai import OpenAI
 
 from app.config.settings import REASONING_MODEL
 from app.prompts.macro_classifier import MACRO_CLASSIFIER_TEMPLATE
@@ -18,7 +18,7 @@ def _get_llm():
     api_key = get_env_or_secret("OPENAI_API_KEY")
     if not api_key:
         raise ValueError("OPENAI API key is required")
-    return ChatOpenAI(model=REASONING_MODEL, temperature=0, openai_api_key=api_key)
+    return OpenAI(api_key=api_key)
 
 
 def _parse_true_false(response) -> bool:
@@ -29,13 +29,18 @@ def _parse_true_false(response) -> bool:
 def classify_one_article(article: NewsArticle) -> NewsArticle:
     """Classify a single article (for use in parallel)."""
     try:
-        llm = _get_llm()
         prompt = MACRO_CLASSIFIER_TEMPLATE.format(
             heading=article.heading,
             content=article.content or "",
         )
-        resp = llm.invoke(prompt)
-        affects = _parse_true_false(resp)
+        client = _get_llm()
+        resp = client.chat.completions.create(
+            model=REASONING_MODEL,
+            temperature=0,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        text = resp.choices[0].message.content or ""
+        affects = _parse_true_false(text)
         article.classification = MacroClassification(
             affects_macro_indicator=affects,
             impact_level="None",

@@ -2,20 +2,22 @@
 
 from typing import List
 
-from langchain_openai import OpenAIEmbeddings
+from openai import OpenAI
 
 from app.config.settings import EMBEDDING_MODEL
 from app.utils.secrets_manager import get_env_or_secret
 
 
-def get_embedding_model() -> OpenAIEmbeddings:
+def _get_openai_client() -> OpenAI:
     api_key = get_env_or_secret("OPENAI_API_KEY")
     if not api_key:
         raise ValueError("OPENAI_API_KEY is required for embeddings")
-    return OpenAIEmbeddings(model=EMBEDDING_MODEL, openai_api_key=api_key)
+    return OpenAI(api_key=api_key)
 
 
 def embed_headline(headline: str) -> List[float]:
     """Return 1536-dim embedding for the headline only."""
-    model = get_embedding_model()
-    return model.embed_query(headline)
+    client = _get_openai_client()
+    resp = client.embeddings.create(model=EMBEDDING_MODEL, input=headline)
+    # OpenAI returns a list of embeddings in the same order as inputs.
+    return list(resp.data[0].embedding)

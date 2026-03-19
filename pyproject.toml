@@ -5,14 +5,13 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "boto3>=1.42.66",
     "bs4>=0.0.2",
     "pgvector>=0.2.6",
     "psycopg2-binary>=2.9.11",
     "python-dotenv>=1.2.2",
     "requests>=2.31.0",
-    "langchain>=1.2.12",
-    "langchain-openai>=1.1.11",
     "sqlalchemy>=2.0.48",
-    "pandas>=3.0.1",
+    "openai>=1.0.0",
+    "langchain-core>=1.2.20",
+    "boto3>=1.42.71",
 ]
